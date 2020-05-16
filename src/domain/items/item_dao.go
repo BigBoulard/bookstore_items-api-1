@@ -1,13 +1,14 @@
 package items
 
 import (
-	"github.com/federicoleon/bookstore_items-api/src/clients/elasticsearch"
-	"github.com/federicoleon/bookstore_utils-go/rest_errors"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"strings"
-	"encoding/json"
+
+	"github.com/federicoleon/bookstore_items-api/src/clients/elasticsearch"
 	"github.com/federicoleon/bookstore_items-api/src/domain/queries"
+	"github.com/federicoleon/bookstore_utils-go/rest_errors"
 )
 
 const (
@@ -67,4 +68,22 @@ func (i *Item) Search(query queries.EsQuery) ([]Item, rest_errors.RestErr) {
 		return nil, rest_errors.NewNotFoundError("no items found matching given criteria")
 	}
 	return items, nil
+}
+
+func (i *Item) Upsert(id string) rest_errors.RestErr {
+	result, err := elasticsearch.Client.Upsert(indexItems, typeItem, i, id)
+	if err != nil {
+		return rest_errors.NewInternalServerError("error when trying to save item", errors.New("database error"))
+	}
+	i.Id = result.Id
+	return nil
+}
+
+func (i *Item) Delete() rest_errors.RestErr {
+	_, err := elasticsearch.Client.Delete(indexItems, typeItem, i.Id)
+	if err != nil {
+		return rest_errors.NewNotFoundError("item to delete not found")
+	}
+	i = nil
+	return nil
 }

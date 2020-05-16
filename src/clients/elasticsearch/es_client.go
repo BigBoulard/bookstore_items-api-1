@@ -3,10 +3,11 @@ package elasticsearch
 import (
 	"context"
 	"fmt"
-	"github.com/federicoleon/bookstore_utils-go/logger"
-	"github.com/olivere/elastic"
 	"os"
 	"time"
+
+	"github.com/federicoleon/bookstore_utils-go/logger"
+	"github.com/olivere/elastic"
 )
 
 const (
@@ -22,6 +23,8 @@ type esClientInterface interface {
 	Index(string, string, interface{}) (*elastic.IndexResponse, error)
 	Get(string, string, string) (*elastic.GetResult, error)
 	Search(string, elastic.Query) (*elastic.SearchResult, error)
+	Delete(string, string, string) (*elastic.DeleteResponse, error)
+	Upsert(string, string, interface{}, string) (*elastic.UpdateResponse, error)
 }
 
 type esClient struct {
@@ -86,6 +89,38 @@ func (c *esClient) Search(index string, query elastic.Query) (*elastic.SearchRes
 		Do(ctx)
 	if err != nil {
 		logger.Error(fmt.Sprintf("error when trying to search documents in index %s", index), err)
+		return nil, err
+	}
+	return result, nil
+}
+
+func (c *esClient) Upsert(index string, docType string, doc interface{}, id string) (*elastic.UpdateResponse, error) {
+	ctx := context.Background()
+	update, err := c.client.Update().
+		Index(index).
+		Type(docType).
+		Id(id).
+		Doc(doc).
+		DocAsUpsert(true).
+		Do(ctx)
+
+	if err != nil {
+		logger.Error(fmt.Sprintf("error when trying to update document of id  %s in index %s", id, index), err)
+		return nil, err
+	}
+	return update, nil
+}
+
+func (c *esClient) Delete(index string, docType string, id string) (*elastic.DeleteResponse, error) {
+	ctx := context.Background()
+	result, err := c.client.Delete().
+		Index(index).
+		Type(docType).
+		Id(id).
+		Do(ctx)
+
+	if err != nil {
+		logger.Error(fmt.Sprintf("error when trying to delete document id %s in index %s", id, index), err)
 		return nil, err
 	}
 	return result, nil
